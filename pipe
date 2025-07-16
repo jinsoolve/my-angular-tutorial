@@ -16,15 +16,12 @@ export interface SearchItem {
 })
 export class SearchDBService {
   private _items: SearchItem[] = [];
-
   private _items$ = new BehaviorSubject<SearchItem[]>([]);
   public readonly items$ = this._items$.asObservable();
 
-  // 🔹 자동 파생 스트림들
   public readonly history$: Observable<SearchItem[]> = this.items$.pipe(
     map(items =>
       [...items]
-        .filter(i => i.recentVisit !== undefined)
         .sort((a, b) => (b.recentVisit ?? 0) - (a.recentVisit ?? 0))
         .slice(0, 15)
     )
@@ -33,7 +30,6 @@ export class SearchDBService {
   public readonly popular$: Observable<SearchItem[]> = this.items$.pipe(
     map(items =>
       [...items]
-        .filter(i => i.visitCount !== undefined)
         .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
         .slice(0, 10)
     )
@@ -44,7 +40,11 @@ export class SearchDBService {
   }
 
   setItems(data: SearchItem[]) {
-    this._items = data;
+    this._items = data.map(item => ({
+      ...item,
+      visitCount: item.visitCount ?? 0,
+      recentVisit: item.recentVisit ?? 0,
+    }));
     this._items$.next(this._items);
     this.saveToLocalStorage();
   }
@@ -52,8 +52,8 @@ export class SearchDBService {
   updateVisit(itemName: string): void {
     const item = this._items.find(i => i.name === itemName);
     if (item) {
-      item.recentVisit = Date.now();
       item.visitCount = (item.visitCount ?? 0) + 1;
+      item.recentVisit = Date.now();
       this._items$.next(this._items);
       this.saveToLocalStorage();
     }
@@ -62,7 +62,12 @@ export class SearchDBService {
   private loadFromLocalStorage() {
     const raw = localStorage.getItem('searchItems');
     if (raw) {
-      this._items = JSON.parse(raw);
+      const loaded = JSON.parse(raw) as SearchItem[];
+      this._items = loaded.map(item => ({
+        ...item,
+        visitCount: item.visitCount ?? 0,
+        recentVisit: item.recentVisit ?? 0,
+      }));
       this._items$.next(this._items);
     }
   }
