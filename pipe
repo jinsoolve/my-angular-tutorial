@@ -1,86 +1,65 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <string>
 
-export interface SearchItem {
-  id: string;
-  name: string;
-  route: string;
-  visitCount?: number;
-  recentVisit?: number;
+std::vector<std::string> splitCSVLine(const std::string& line) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(line);
+    std::string token;
+
+    while (getline(ss, token, ',')) {
+        tokens.push_back(token);
+    }
+    return tokens;
 }
 
-@Injectable({ providedIn: 'root' })
-export class SearchDBService {
-  private _items: SearchItem[] = [];
-  private _items$ = new BehaviorSubject<SearchItem[]>([]);
-  public readonly items$ = this._items$.asObservable();
+int main() {
+    std::ifstream input("search-items.csv");
+    std::ofstream output("search-items.json");
 
-  // 🔥 추가된 부분: history$와 popular$
-  public readonly history$: Observable<SearchItem[]> = this.items$.pipe(
-    map(items =>
-      [...items]
-        .filter(item => item.recentVisit && item.recentVisit > 0)
-        .sort((a, b) => (b.recentVisit ?? 0) - (a.recentVisit ?? 0))
-        .slice(0, 15)
-    )
-  );
-
-  public readonly popular$: Observable<SearchItem[]> = this.items$.pipe(
-    map(items =>
-      [...items]
-        .filter(item => item.visitCount && item.visitCount > 0)
-        .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
-        .slice(0, 10)
-    )
-  );
-
-  constructor() {
-    this.loadItems();
-  }
-
-  private async loadItems() {
-    const staticData = await fetch('/assets/json/search-items.json')
-      .then(res => res.json()) as SearchItem[];
-    const visitData = this.loadVisitData();
-
-    const merged = staticData.map(item => ({
-      ...item,
-      visitCount: visitData[item.id]?.visitCount ?? 0,
-      recentVisit: visitData[item.id]?.recentVisit ?? 0
-    }));
-
-    this._items = merged;
-    this._items$.next(this._items);
-  }
-
-  updateVisit(id: string): void {
-    const item = this._items.find(i => i.id === id);
-    if (!item) return;
-
-    item.visitCount = (item.visitCount ?? 0) + 1;
-    item.recentVisit = Date.now();
-
-    this._items$.next(this._items);
-    this.saveVisitData();
-  }
-
-  private loadVisitData(): Record<string, { visitCount: number; recentVisit: number }> {
-    try {
-      return JSON.parse(localStorage.getItem('searchVisitData') ?? '{}');
-    } catch {
-      return {};
+    if (!input.is_open()) {
+        std::cerr << "CSV 파일을 열 수 없습니다." << std::endl;
+        return 1;
     }
-  }
 
-  private saveVisitData() {
-    const visitData: Record<string, { visitCount: number; recentVisit: number }> = {};
-    for (const item of this._items) {
-      visitData[item.id] = {
-        visitCount: item.visitCount ?? 0,
-        recentVisit: item.recentVisit ?? 0
-      };
+    std::string line;
+    std::vector<std::string> headers;
+
+    // 첫 줄: key 이름
+    if (getline(input, line)) {
+        headers = splitCSVLine(line);
+    } else {
+        std::cerr << "CSV 파일이 비어 있습니다." << std::endl;
+        return 1;
     }
-    localStorage.setItem('searchVisitData', JSON.stringify(visitData));
-  }
+
+    output << "[\n";
+
+    bool first = true;
+    while (getline(input, line)) {
+        auto values = splitCSVLine(line);
+        if (values.size() != headers.size()) continue;
+
+        if (!first) output << ",\n";
+        first = false;
+
+        output << "  {\n";
+        for (size_t i = 0; i < headers.size(); ++i) {
+            output << "    \"" << headers[i] << "\": ";
+            output << "\"" << values[i] << "\"";
+            if (i != headers.size() - 1) output << ",";
+            output << "\n";
+        }
+        output << "  }";
+    }
+
+    output << "\n]\n";
+
+    input.close();
+    output.close();
+
+    std::cout << "search-items.json 생성 완료!" << std::endl;
+    return 0;
 }
