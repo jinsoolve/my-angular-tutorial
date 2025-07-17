@@ -1,16 +1,48 @@
+import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+export interface SearchItem {
+  id: string;
+  name: string;
+  route: string;
+  visitCount?: number;
+  recentVisit?: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SearchDBService {
   private _items: SearchItem[] = [];
   private _items$ = new BehaviorSubject<SearchItem[]>([]);
   public readonly items$ = this._items$.asObservable();
 
+  // 🔥 추가된 부분: history$와 popular$
+  public readonly history$: Observable<SearchItem[]> = this.items$.pipe(
+    map(items =>
+      [...items]
+        .filter(item => item.recentVisit && item.recentVisit > 0)
+        .sort((a, b) => (b.recentVisit ?? 0) - (a.recentVisit ?? 0))
+        .slice(0, 15)
+    )
+  );
+
+  public readonly popular$: Observable<SearchItem[]> = this.items$.pipe(
+    map(items =>
+      [...items]
+        .filter(item => item.visitCount && item.visitCount > 0)
+        .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
+        .slice(0, 10)
+    )
+  );
+
   constructor() {
     this.loadItems();
   }
 
   private async loadItems() {
-    const staticData = await fetch('/assets/json/search-items.json').then(res => res.json()) as SearchItem[];
-    const visitData = this.loadVisitData(); // localStorage에서 기록 가져오기
+    const staticData = await fetch('/assets/json/search-items.json')
+      .then(res => res.json()) as SearchItem[];
+    const visitData = this.loadVisitData();
 
     const merged = staticData.map(item => ({
       ...item,
@@ -43,16 +75,12 @@ export class SearchDBService {
 
   private saveVisitData() {
     const visitData: Record<string, { visitCount: number; recentVisit: number }> = {};
-
     for (const item of this._items) {
       visitData[item.id] = {
         visitCount: item.visitCount ?? 0,
         recentVisit: item.recentVisit ?? 0
       };
     }
-
     localStorage.setItem('searchVisitData', JSON.stringify(visitData));
   }
-
-  // Optional: 랭킹, 히스토리용 stream도 추가 가능
 }
