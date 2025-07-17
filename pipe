@@ -1,38 +1,17 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-using namespace std;
+getItems(): SearchItem[] {
+  return this._items$.getValue().slice();
+}
 
-int main() {
-    vector<string> names;
-    string line;
+getHistory(): SearchItem[] {
+  return this.getItems()
+    .filter(item => item.recentVisit && item.recentVisit > 0)
+    .sort((a, b) => (b.recentVisit ?? 0) - (a.recentVisit ?? 0))
+    .slice(0, 15);
+}
 
-    // 표준 입력에서 이름 리스트 받기
-    while (getline(cin, line)) {
-        if (line.empty()) continue;
-        names.push_back(line);
-    }
-
-    ofstream outfile("search-items.json");
-    if (!outfile.is_open()) {
-        cerr << "❌ search-items.json 파일을 열 수 없습니다." << endl;
-        return 1;
-    }
-
-    outfile << "[\n";
-    for (size_t i = 0; i < names.size(); ++i) {
-        const string& name = names[i];
-        outfile << "  {\n";
-        outfile << "    \"id\": \"" << name << "\",\n";
-        outfile << "    \"name\": \"" << name << "\",\n";
-        outfile << "    \"route\": \"/" << name << "\"\n";
-        outfile << "  }" << (i + 1 < names.size() ? "," : "") << "\n";
-    }
-    outfile << "]\n";
-
-    outfile.close();
-    cout << "✅ search-items.json 파일 생성 완료!" << endl;
-
-    return 0;
+getPopular(): SearchItem[] {
+  return this.getItems()
+    .filter(item => item.visitCount && item.visitCount > 0)
+    .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
+    .slice(0, 10);
 }
