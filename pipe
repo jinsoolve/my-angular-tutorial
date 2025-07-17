@@ -1,65 +1,28 @@
 #include <iostream>
-#include <fstream>
-#include <sstream>
 #include <vector>
 #include <string>
-
-std::vector<std::string> splitCSVLine(const std::string& line) {
-    std::vector<std::string> tokens;
-    std::stringstream ss(line);
-    std::string token;
-
-    while (getline(ss, token, ',')) {
-        tokens.push_back(token);
-    }
-    return tokens;
-}
+using namespace std;
 
 int main() {
-    std::ifstream input("search-items.csv");
-    std::ofstream output("search-items.json");
+    vector<string> names;
+    string line;
 
-    if (!input.is_open()) {
-        std::cerr << "CSV 파일을 열 수 없습니다." << std::endl;
-        return 1;
+    // 표준 입력에서 이름 리스트 받기 (엔터로 구분)
+    while (getline(cin, line)) {
+        if (line.empty()) continue;
+        names.push_back(line);
     }
 
-    std::string line;
-    std::vector<std::string> headers;
-
-    // 첫 줄: key 이름
-    if (getline(input, line)) {
-        headers = splitCSVLine(line);
-    } else {
-        std::cerr << "CSV 파일이 비어 있습니다." << std::endl;
-        return 1;
+    cout << "[\n";
+    for (size_t i = 0; i < names.size(); ++i) {
+        const string& name = names[i];
+        cout << "  {\n";
+        cout << "    \"id\": \"" << name << "\",\n";
+        cout << "    \"name\": \"" << name << "\",\n";
+        cout << "    \"route\": \"/" << name << "\"\n";
+        cout << "  }" << (i + 1 < names.size() ? "," : "") << "\n";
     }
+    cout << "]\n";
 
-    output << "[\n";
-
-    bool first = true;
-    while (getline(input, line)) {
-        auto values = splitCSVLine(line);
-        if (values.size() != headers.size()) continue;
-
-        if (!first) output << ",\n";
-        first = false;
-
-        output << "  {\n";
-        for (size_t i = 0; i < headers.size(); ++i) {
-            output << "    \"" << headers[i] << "\": ";
-            output << "\"" << values[i] << "\"";
-            if (i != headers.size() - 1) output << ",";
-            output << "\n";
-        }
-        output << "  }";
-    }
-
-    output << "\n]\n";
-
-    input.close();
-    output.close();
-
-    std::cout << "search-items.json 생성 완료!" << std::endl;
     return 0;
 }
