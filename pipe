@@ -1,96 +1,58 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
-
-export interface SearchItem {
-  name: string;
-  route: string;
-  unitId?: string;
-  rank?: number;
-  recentVisit?: number;
-  visitCount?: number;
-}
-
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class SearchDBService {
   private _items: SearchItem[] = [];
   private _items$ = new BehaviorSubject<SearchItem[]>([]);
   public readonly items$ = this._items$.asObservable();
 
-  public readonly history$: Observable<SearchItem[]> = this.items$.pipe(
-    map(items =>
-      [...items]
-        .sort((a, b) => (b.recentVisit ?? 0) - (a.recentVisit ?? 0))
-        .slice(0, 15)
-    )
-  );
-
-  public readonly popular$: Observable<SearchItem[]> = this.items$.pipe(
-    map(items =>
-      [...items]
-        .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
-        .slice(0, 10)
-    )
-  );
-
   constructor() {
-    this.loadFromLocalStorage();
+    this.loadItems();
   }
 
-  setItems(data: SearchItem[]) {
-    this._items = data.map(item => ({
+  private async loadItems() {
+    const staticData = await fetch('/assets/json/search-items.json').then(res => res.json()) as SearchItem[];
+    const visitData = this.loadVisitData(); // localStorage에서 기록 가져오기
+
+    const merged = staticData.map(item => ({
       ...item,
-      visitCount: item.visitCount ?? 0,
-      recentVisit: item.recentVisit ?? 0,
+      visitCount: visitData[item.id]?.visitCount ?? 0,
+      recentVisit: visitData[item.id]?.recentVisit ?? 0
     }));
+
+    this._items = merged;
     this._items$.next(this._items);
-    this.saveToLocalStorage();
   }
 
-  updateVisit(itemName: string): void {
-    const item = this._items.find(i => i.name === itemName);
-    if (item) {
-      item.recentVisit = Date.now();
-      item.visitCount = (item.visitCount ?? 0) + 1;
-      this._items$.next(this._items);
-      this.saveToLocalStorage();
-    }
+  updateVisit(id: string): void {
+    const item = this._items.find(i => i.id === id);
+    if (!item) return;
+
+    item.visitCount = (item.visitCount ?? 0) + 1;
+    item.recentVisit = Date.now();
+
+    this._items$.next(this._items);
+    this.saveVisitData();
   }
 
-  private loadFromLocalStorage() {
-    const raw = localStorage.getItem('searchItems');
-
-    if (raw) {
-      try {
-        const loaded = JSON.parse(raw) as SearchItem[];
-        this.setItems(loaded);
-      } catch {
-        console.warn('localStorage JSON parse error. Falling back to default JSON.');
-        this.loadInitialDataFromJson();
-      }
-    } else {
-      this.loadInitialDataFromJson();
-    }
-  }
-
-  private loadInitialDataFromJson() {
-    fetch('/assets/json/search-items.json')
-      .then(res => res.json())
-      .then((data: SearchItem[]) => {
-        this.setItems(data);
-      })
-      .catch(err => {
-        console.error('Failed to load search-items.json:', err);
-      });
-  }
-
-  private saveToLocalStorage() {
+  private loadVisitData(): Record<string, { visitCount: number; recentVisit: number }> {
     try {
-      localStorage.setItem('searchItems', JSON.stringify(this._items));
-    } catch (e) {
-      console.error('localStorage save failed:', e);
+      return JSON.parse(localStorage.getItem('searchVisitData') ?? '{}');
+    } catch {
+      return {};
     }
   }
+
+  private saveVisitData() {
+    const visitData: Record<string, { visitCount: number; recentVisit: number }> = {};
+
+    for (const item of this._items) {
+      visitData[item.id] = {
+        visitCount: item.visitCount ?? 0,
+        recentVisit: item.recentVisit ?? 0
+      };
+    }
+
+    localStorage.setItem('searchVisitData', JSON.stringify(visitData));
+  }
+
+  // Optional: 랭킹, 히스토리용 stream도 추가 가능
 }
