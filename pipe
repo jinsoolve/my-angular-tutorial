@@ -52,8 +52,8 @@ export class SearchDBService {
   updateVisit(itemName: string): void {
     const item = this._items.find(i => i.name === itemName);
     if (item) {
-      item.visitCount = (item.visitCount ?? 0) + 1;
       item.recentVisit = Date.now();
+      item.visitCount = (item.visitCount ?? 0) + 1;
       this._items$.next(this._items);
       this.saveToLocalStorage();
     }
@@ -61,18 +61,36 @@ export class SearchDBService {
 
   private loadFromLocalStorage() {
     const raw = localStorage.getItem('searchItems');
+
     if (raw) {
-      const loaded = JSON.parse(raw) as SearchItem[];
-      this._items = loaded.map(item => ({
-        ...item,
-        visitCount: item.visitCount ?? 0,
-        recentVisit: item.recentVisit ?? 0,
-      }));
-      this._items$.next(this._items);
+      try {
+        const loaded = JSON.parse(raw) as SearchItem[];
+        this.setItems(loaded);
+      } catch {
+        console.warn('localStorage JSON parse error. Falling back to default JSON.');
+        this.loadInitialDataFromJson();
+      }
+    } else {
+      this.loadInitialDataFromJson();
     }
   }
 
+  private loadInitialDataFromJson() {
+    fetch('/assets/json/search-items.json')
+      .then(res => res.json())
+      .then((data: SearchItem[]) => {
+        this.setItems(data);
+      })
+      .catch(err => {
+        console.error('Failed to load search-items.json:', err);
+      });
+  }
+
   private saveToLocalStorage() {
-    localStorage.setItem('searchItems', JSON.stringify(this._items));
+    try {
+      localStorage.setItem('searchItems', JSON.stringify(this._items));
+    } catch (e) {
+      console.error('localStorage save failed:', e);
+    }
   }
 }
