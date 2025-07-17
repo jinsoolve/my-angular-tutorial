@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <string>
 using namespace std;
@@ -7,22 +8,31 @@ int main() {
     vector<string> names;
     string line;
 
-    // 표준 입력에서 이름 리스트 받기 (엔터로 구분)
+    // 표준 입력에서 이름 리스트 받기
     while (getline(cin, line)) {
         if (line.empty()) continue;
         names.push_back(line);
     }
 
-    cout << "[\n";
+    ofstream outfile("search-items.json");
+    if (!outfile.is_open()) {
+        cerr << "❌ search-items.json 파일을 열 수 없습니다." << endl;
+        return 1;
+    }
+
+    outfile << "[\n";
     for (size_t i = 0; i < names.size(); ++i) {
         const string& name = names[i];
-        cout << "  {\n";
-        cout << "    \"id\": \"" << name << "\",\n";
-        cout << "    \"name\": \"" << name << "\",\n";
-        cout << "    \"route\": \"/" << name << "\"\n";
-        cout << "  }" << (i + 1 < names.size() ? "," : "") << "\n";
+        outfile << "  {\n";
+        outfile << "    \"id\": \"" << name << "\",\n";
+        outfile << "    \"name\": \"" << name << "\",\n";
+        outfile << "    \"route\": \"/" << name << "\"\n";
+        outfile << "  }" << (i + 1 < names.size() ? "," : "") << "\n";
     }
-    cout << "]\n";
+    outfile << "]\n";
+
+    outfile.close();
+    cout << "✅ search-items.json 파일 생성 완료!" << endl;
 
     return 0;
 }
