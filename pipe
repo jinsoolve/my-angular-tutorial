@@ -1,17 +1,89 @@
-getItems(): SearchItem[] {
-  return this._items$.getValue().slice();
+
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <map>
+#include <queue>
+
+using namespace std;
+using pii = pair<int,int>;
+using ti3 = tuple<int,int,int>;
+
+const int MXN_N = 101;
+const int MXN_M = 50;
+
+int N, M;
+int g[MXN_N][MXN_N];
+unordered_map<int, string> pAttr;
+unordered_map<int, pii> link;
+
+string ctos(char c[]) {
+    string ret = "";
+    for(int i=0; i<M; i++) {
+        ret += c[i];
+    }
+    return ret;
+}
+int cal_cost(string a, string b) {
+    int ret = 0;
+    for(int i=0; i<M; i++) {
+        if(a[i] == 'D' or b[i] == 'D') ret++;
+        else ret += (a[i] != b[i]);
+    }
 }
 
-getHistory(): SearchItem[] {
-  return this.getItems()
-    .filter(item => item.recentVisit && item.recentVisit > 0)
-    .sort((a, b) => (b.recentVisit ?? 0) - (a.recentVisit ?? 0))
-    .slice(0, 15);
+void add(int mID, int aStorage, int bStorage, char attr[]) {
+    g[aStorage][bStorage] = g[bStorage][aStorage] = mID;
+    string p = ctos(attr);
+    pAttr[mID] = p;
+    link[mID] = {aStorage,bStorage};
+}
+void remove(int mID) {
+    pii res = link[mID];
+    int a = res.first, b = res.second;
+    g[a][b] = g[b][a] = -1;
 }
 
-getPopular(): SearchItem[] {
-  return this.getItems()
-    .filter(item => item.visitCount && item.visitCount > 0)
-    .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
-    .slice(0, 10);
+void init(int _N, int _M, int mID[], int aStorage[], int bStorage[], char attr[][MXN_M]) {
+    N = _N;
+    M = _M;
+    for(int i=0; i<N; i++) {
+        add(mID[i], aStorage[i], bStorage[i], attr[i]);
+    }
+}
+
+int transport(int sStorage, int eStorage, char attr[]) {
+    map<pii, int> dp;
+    priority_queue<ti3, vector<ti3>, greater<>> pq;
+    pAttr[0] = ctos(attr);
+    dp[{sStorage, 0}] = 0;
+    pq.emplace(0, sStorage, 0);
+    int ans = 987654321;
+
+    while(!pq.empty()) {
+        ti3 res = pq.top(); pq.pop();
+        int w = get<0>(res), u = get<1>(res), attrID = get<2>(res);
+        if(u == eStorage) return w;
+        if(dp[{u, attrID}] < w) continue;
+
+        for(int v=1; v<=N; v++) {
+            if(g[u][v] == -1) continue;
+            int n_attrID = g[u][v];
+            int nw = w + cal_cost(pAttr[attrID], pAttr[n_attrID]);
+            if(ans < nw) continue;
+            if(dp.count({v, attrID}) == 0 || dp[{v,attrID}] > nw) {
+                if(v == eStorage) ans = min(ans, nw);
+                dp[{v,attrID}] = nw;
+                pq.emplace(nw, v, attrID);
+            }
+            if(attrID != 0) continue;
+            nw = w+1;
+            if(dp.count({v, n_attrID}) == 0 || dp[{v, n_attrID}] > nw) {
+                if(v == eStorage) ans = min(ans, nw);
+                dp[{v, n_attrID}] = nw;
+                pq.emplace(nw, v, n_attrID);
+            }
+        }
+    }
+    return -1;
 }
