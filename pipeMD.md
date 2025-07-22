@@ -1,8 +1,25 @@
-# 💉 `@inject()` 쉽게 설명하기 (TypeScript / DI)
+# 💠 `@injectable()` 쉽게 설명하기
 
-## 🎯 상황: `UserService`는 `Logger`가 필요해
+## ✅ `@injectable()`이란?
+
+> 이 클래스는 **DI 컨테이너가 생성할 수 있도록 허락한 클래스야!**
+
+DI 컨테이너가 클래스 인스턴스를 자동으로 만들어서 주입하려면, 그 클래스는 **"나를 만들어도 돼"** 라고 허락해야 해요.  
+바로 그 표시가 `@injectable()`입니다.
+
+---
+
+## 🧩 예시 없이 보면 이해 어렵다 → 바로 예시!
+
+### ❌ `@injectable()` 없을 때
 
 ```ts
+class Logger {
+  log(message: string) {
+    console.log("[LOG]", message);
+  }
+}
+
 class UserService {
   constructor(private logger: Logger) {}
 
@@ -12,70 +29,73 @@ class UserService {
 }
 ```
 
-이 `UserService`는 로그를 출력하기 위해 `Logger`가 필요해요. 그런데 누가 `Logger`를 만들어서 넣어줘야 할까요?
-
----
-
-## 🤯 직접 만드는 방법 (❌ 좋지 않음)
+그리고 DI 컨테이너 설정:
 
 ```ts
-class UserService {
-  private logger = new Logger();  // 직접 만들기
-}
+container.bind(UserService).toSelf();
+container.bind(Logger).toSelf();
+
+const service = container.get(UserService); // ❌ 오류!
 ```
 
-이렇게 하면 `UserService`가 `Logger`에 **딱 붙어 있어서**, 바꾸기도 어렵고 테스트도 힘들어요.
+**🚫 오류 발생!**  
+> "Logger 클래스가 injectable하지 않다고 TypeScript가 화냅니다"
 
 ---
 
-## ✅ 좋은 방법: **밖에서 넣어주기**
+### ✅ `@injectable()` 추가한 예시
 
 ```ts
-class UserService {
-  constructor(private logger: Logger) {}  // 외부에서 주입
+import { injectable, inject } from "inversify";
+
+@injectable()
+class Logger {
+  log(message: string) {
+    console.log("[LOG]", message);
+  }
 }
-```
 
-이렇게 하면 `UserService`는 단지 **“Logger 하나만 주세요”** 하는 입장이고, 실제 Logger는 **밖에서 누가 넣어줘야 해요.**
-
----
-
-## 🤖 여기서 `@inject()` 등장!
-
-```ts
+@injectable()
 class UserService {
   constructor(@inject(Logger) private logger: Logger) {}
+
+  signup(name: string) {
+    this.logger.log(`${name} signed up!`);
+  }
 }
 ```
 
-- `@inject(Logger)` 는 다음과 같은 의미예요:
-  > "DI 컨테이너야, `Logger` 타입 객체 하나 나 대신 넣어줘!"
-
-이제 DI 컨테이너가 아래처럼 사용할 수 있게 해줘요:
+그리고 DI 등록:
 
 ```ts
-const userService = container.get(UserService);
+container.bind(Logger).toSelf();
+container.bind(UserService).toSelf();
+
+const service = container.get(UserService);  // ✅ 정상 작동!
 ```
 
-- `Logger`는 자동으로 주입됨
-- 테스트할 땐 `MockLogger`, `FakeLogger`도 쉽게 넣을 수 있음
-
 ---
 
-## 🧃 비유로 정리
+## 🔑 요약
 
-| 방식 | 설명 |
+| 개념 | 설명 |
 |------|------|
-| **직접 만들기** | 커피 마시고 싶어서 직접 원두 사고, 갈고, 물 끓이고… |
-| **의존성 주입** | “커피 주세요” 하면, 누가 알아서 타서 줌 ☕ |
-| `@inject()` | “커피 달라고 요청하는 표시” |
+| `@injectable()` | **"이 클래스는 DI 컨테이너가 만들 수 있어요!"** 라는 표시 |
+| 언제 필요해? | 다른 클래스의 생성자에 주입되거나, 직접 DI로 생성될 때 |
+| 같이 쓰는 데코레이터 | `@inject()` (생성자 매개변수에 씀) |
 
 ---
 
-## 💬 최종 요약
+## 📦 비유
 
-| 개념 | 쉽게 말하면 |
-|------|--------------|
-| `@inject()` | “필요한 거 자동으로 넣어줘!”라고 표시하는 도구 |
-| 왜 씀? | 직접 만들지 않고, 외부에서 넣어주게 해서 **코드가 유연하고 테스트 쉬움** |
-| 언제 씀? | 클래스가 뭔가(예: Logger, DB, API client 등)를 필요로 할 때 |
+| 역할 | 설명 |
+|------|------|
+| `@inject()` | "이런 게 필요해요!" 라고 요청 |
+| `@injectable()` | "응, 날 써도 돼!" 라고 허락 |
+
+---
+
+## 🧪 Tip
+
+DI를 쓸 때는 **`@injectable()` 없이는 `@inject()`도 제대로 작동하지 않아요.**
+항상 **주입받는 클래스와 주입하는 클래스 양쪽 모두에 `@injectable()`을 써줘야 해요.**
