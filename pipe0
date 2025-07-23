@@ -1,28 +1,35 @@
-private waitForScrollEnd(callback: () => void, delayAfterStop = 300): void {
-  let lastScrollY = window.scrollY;
-  let sameCount = 0;
-  const threshold = 3;
+private waitForScrollEnd(
+  callback: () => void,
+  scrollTarget: Element | Document = document.scrollingElement!,
+  checkInterval = 100,
+  stableThreshold = 3
+): void {
+  let lastY = (scrollTarget as HTMLElement).scrollTop;
+  let stableCount = 0;
 
   const check = () => {
-    const currentY = window.scrollY;
+    const currentY = (scrollTarget as HTMLElement).scrollTop;
 
-    if (Math.abs(currentY - lastScrollY) < 2) {
-      sameCount++;
+    if (Math.abs(currentY - lastY) < 2) {
+      stableCount++;
     } else {
-      sameCount = 0;
+      stableCount = 0;
     }
 
-    lastScrollY = currentY;
+    lastY = currentY;
 
-    if (sameCount >= threshold) {
-      // 🎯 멈춘 걸 감지한 이후, 일정 시간 후에 콜백 실행
-      setTimeout(() => {
-        callback();
-      }, delayAfterStop);
+    if (stableCount >= stableThreshold) {
+      callback();
     } else {
-      requestAnimationFrame(check);
+      setTimeout(check, checkInterval);
     }
   };
 
-  requestAnimationFrame(check);
+  setTimeout(check, checkInterval);
 }
+
+const scrollContainer = document.querySelector('#scrollable-content');
+
+this.waitForScrollEnd(() => {
+  this.highlightBlink(el);
+}, scrollContainer);
