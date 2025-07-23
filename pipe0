@@ -1,4 +1,4 @@
-private waitForScrollEnd(callback: () => void, timeout = 500): void {
+private waitForScrollEnd(callback: () => void, delayAfterStop = 300): void {
   let lastScrollY = window.scrollY;
   let sameCount = 0;
   const threshold = 3;
@@ -15,28 +15,14 @@ private waitForScrollEnd(callback: () => void, timeout = 500): void {
     lastScrollY = currentY;
 
     if (sameCount >= threshold) {
-      callback();
+      // 🎯 멈춘 걸 감지한 이후, 일정 시간 후에 콜백 실행
+      setTimeout(() => {
+        callback();
+      }, delayAfterStop);
     } else {
       requestAnimationFrame(check);
     }
   };
 
   requestAnimationFrame(check);
-}
-
-public doFocus(item: SearchItem): void {
-  const selector = `unit-${item.id}`;
-
-  this.router.navigate([item.route], { fragment: item.id }).then(() => {
-    this.waitForElement(selector)
-      .then((el) => {
-        this.scrollToUnit(el);
-
-        // 💡 스크롤이 끝나고 나서 highlight 실행
-        this.waitForScrollEnd(() => {
-          this.highlightBlink(el);
-        });
-      })
-      .catch((err) => console.warn(`[doFocus] ${selector} not found:`, err));
-  });
 }
