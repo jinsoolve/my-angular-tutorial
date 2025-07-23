@@ -1,47 +1,5 @@
-private waitForScrollEnd(
-  callback: () => void,
-  scrollTarget: Element | Document = document.scrollingElement!,
-  checkInterval = 100,
-  stableThreshold = 3
-): void {
-  let lastY = (scrollTarget as HTMLElement).scrollTop;
-  let stableCount = 0;
-
-  const check = () => {
-    const currentY = (scrollTarget as HTMLElement).scrollTop;
-
-    if (Math.abs(currentY - lastY) < 2) {
-      stableCount++;
-    } else {
-      stableCount = 0;
-    }
-
-    lastY = currentY;
-
-    if (stableCount >= stableThreshold) {
-      callback();
-    } else {
-      setTimeout(check, checkInterval);
-    }
-  };
-
-  setTimeout(check, checkInterval);
-}
-
-
-
-
-const scrollContainer = document.querySelector('#scrollable-content');
-
-this.waitForScrollEnd(() => {
-  this.highlightBlink(el);
-}, scrollContainer);
-
-
-
-
-console.log(
-  'window.scrollY:', window.scrollY,
-  'scrollingElement.scrollTop:', document.scrollingElement?.scrollTop,
-  'myContainer.scrollTop:', myContainer?.scrollTop
+[...document.querySelectorAll('*')].filter(
+  el =>
+    (el.scrollHeight > el.clientHeight + 5) &&
+    ['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
 );
