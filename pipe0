@@ -1,3 +1,29 @@
+private waitForScrollEnd(callback: () => void, timeout = 500): void {
+  let lastScrollY = window.scrollY;
+  let sameCount = 0;
+  const threshold = 3;
+
+  const check = () => {
+    const currentY = window.scrollY;
+
+    if (Math.abs(currentY - lastScrollY) < 2) {
+      sameCount++;
+    } else {
+      sameCount = 0;
+    }
+
+    lastScrollY = currentY;
+
+    if (sameCount >= threshold) {
+      callback();
+    } else {
+      requestAnimationFrame(check);
+    }
+  };
+
+  requestAnimationFrame(check);
+}
+
 public doFocus(item: SearchItem): void {
   const selector = `unit-${item.id}`;
 
@@ -5,47 +31,12 @@ public doFocus(item: SearchItem): void {
     this.waitForElement(selector)
       .then((el) => {
         this.scrollToUnit(el);
-        this.highlightBlink(el);
+
+        // 💡 스크롤이 끝나고 나서 highlight 실행
+        this.waitForScrollEnd(() => {
+          this.highlightBlink(el);
+        });
       })
       .catch((err) => console.warn(`[doFocus] ${selector} not found:`, err));
   });
-}
-
-
-private waitForElement(selector: string, timeout = 5000): Promise<Element> {
-  return new Promise((resolve, reject) => {
-    const el = document.querySelector(selector);
-    if (el) return resolve(el);
-
-    const observer = new MutationObserver((_mutations, obs) => {
-      const el = document.querySelector(selector);
-      if (el) {
-        obs.disconnect();
-        resolve(el);
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-
-    // Optional: 타임아웃 후 실패 처리
-    setTimeout(() => {
-      observer.disconnect();
-      reject(new Error('Timeout: Element not found'));
-    }, timeout);
-  });
-}
-
-
-private scrollToUnit(el: Element): void {
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-private highlightBlink(el: Element): void {
-  el.classList.add('unit-highlight');
-  setTimeout(() => {
-    el.classList.remove('unit-highlight');
-  }, 1500);
 }
