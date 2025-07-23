@@ -28,8 +28,20 @@ private waitForScrollEnd(
   setTimeout(check, checkInterval);
 }
 
+
+
+
 const scrollContainer = document.querySelector('#scrollable-content');
 
 this.waitForScrollEnd(() => {
   this.highlightBlink(el);
 }, scrollContainer);
+
+
+
+
+console.log(
+  'window.scrollY:', window.scrollY,
+  'scrollingElement.scrollTop:', document.scrollingElement?.scrollTop,
+  'myContainer.scrollTop:', myContainer?.scrollTop
+);
