@@ -1,0 +1,42 @@
+private waitForScrollEnd(callback: () => void, timeout = 300): void {
+  let lastScrollY = window.scrollY;
+  let sameCount = 0;
+  const threshold = 3;
+
+  const check = () => {
+    const currentY = window.scrollY;
+
+    if (Math.abs(currentY - lastScrollY) < 2) {
+      sameCount++;
+    } else {
+      sameCount = 0;
+    }
+
+    lastScrollY = currentY;
+
+    if (sameCount >= threshold) {
+      callback();
+    } else {
+      requestAnimationFrame(check);
+    }
+  };
+
+  requestAnimationFrame(check);
+}
+
+public doFocus(item: SearchItem): void {
+  const selector = `unit-${item.id}`;
+
+  this.router.navigate([item.route], { fragment: item.id }).then(() => {
+    this.waitForElement(selector)
+      .then(el => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // highlight는 스크롤 멈춘 후에 실행
+        this.waitForScrollEnd(() => {
+          this.highlightBlink(el);
+        });
+      })
+      .catch(err => console.warn(`[doFocus] element not found: ${selector}`, err));
+  });
+}
