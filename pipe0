@@ -1,10 +1,56 @@
-function findScrollableElements() {
-  const all = Array.from(document.querySelectorAll('*'));
-  return all.filter(el => {
-    const style = getComputedStyle(el);
-    return ['auto', 'scroll'].includes(style.overflowY)
-      && el.scrollHeight > el.clientHeight + 5;
-  });
+private waitForScrollEnd(
+  callback: () => void,
+  scrollEl: Element,
+  checkInterval = 100,
+  stableThreshold = 3,
+  movementThreshold = 2
+): void {
+  let lastY = (scrollEl as HTMLElement).scrollTop;
+  let stableCount = 0;
+
+  const check = () => {
+    const currentY = (scrollEl as HTMLElement).scrollTop;
+
+    if (Math.abs(currentY - lastY) < movementThreshold) {
+      stableCount++;
+    } else {
+      stableCount = 0;
+    }
+
+    lastY = currentY;
+
+    if (stableCount >= stableThreshold) {
+      callback(); // 멈췄다고 판단
+    } else {
+      setTimeout(check, checkInterval);
+    }
+  };
+
+  setTimeout(check, checkInterval);
 }
 
-console.log(findScrollableElements());
+
+
+
+public doFocus(item: SearchItem): void {
+  const selector = `unit-${item.id}`;
+
+  this.router.navigate([item.route], { fragment: item.id }).then(() => {
+    this.waitForElement(selector)
+      .then((el) => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        const scrollEl = document.querySelector('.cx-content.flexible-padding.hide-scrollbar');
+        if (!scrollEl) {
+          console.warn('[doFocus] scroll container not found');
+          this.highlightBlink(el); // fallback
+          return;
+        }
+
+        this.waitForScrollEnd(() => {
+          this.highlightBlink(el);
+        }, scrollEl);
+      })
+      .catch((err) => console.warn(`[doFocus] ${selector} not found:`, err));
+  });
+}
