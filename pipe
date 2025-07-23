@@ -1,18 +1,10 @@
-scrollToUnit(id: string, maxRetries = 10, retryDelay = 100) {
-  const selector = `unit-${id}`;
-  let attempts = 0;
+/* styles.css 또는 해당 컴포넌트 CSS에 */
+.unit-highlight {
+  animation: highlight-blink 1s ease-in-out 0s 2;
+}
 
-  const tryScroll = () => {
-    const el = document.querySelector(selector);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else if (attempts < maxRetries) {
-      attempts++;
-      setTimeout(tryScroll, retryDelay);
-    } else {
-      console.warn(`❗️[scrollToUnit] Element '${selector}' not found after ${maxRetries} attempts`);
-    }
-  };
-
-  tryScroll();
+@keyframes highlight-blink {
+  0%   { box-shadow: 0 0 0px rgba(255, 255, 0, 0.5); }
+  50%  { box-shadow: 0 0 15px rgba(255, 255, 0, 1); }
+  100% { box-shadow: 0 0 0px rgba(255, 255, 0, 0.5); }
 }
