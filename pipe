@@ -1,78 +1,18 @@
-좋아, 좀 더 쉽게 설명할게. 예를 들어서 생각해 보자:
+scrollToUnit(id: string, maxRetries = 10, retryDelay = 100) {
+  const selector = `unit-${id}`;
+  let attempts = 0;
 
-⸻
+  const tryScroll = () => {
+    const el = document.querySelector(selector);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (attempts < maxRetries) {
+      attempts++;
+      setTimeout(tryScroll, retryDelay);
+    } else {
+      console.warn(`❗️[scrollToUnit] Element '${selector}' not found after ${maxRetries} attempts`);
+    }
+  };
 
-🎯 상황: “UserService”는 “Logger”가 필요해
-
-class UserService {
-  constructor(private logger: Logger) {}
-
-  signup(name: string) {
-    this.logger.log(`${name} signed up!`);
-  }
+  tryScroll();
 }
-
-이 UserService는 로그를 출력하기 위해 Logger가 필요해. 그런데 문제는 누가 이 Logger를 만들어서 넣어줄 거냐야.
-
-⸻
-
-🤯 직접 만드는 방법 (좋지 않음)
-
-class UserService {
-  private logger = new Logger();  // 직접 만듦!
-}
-
-이렇게 하면 UserService가 Logger라는 구체적인 구현에 딱 달라붙어 있어서 나중에 바꾸기도 어렵고, 테스트도 불편해져.
-
-⸻
-
-✅ 좋은 방법: 누군가 Logger를 “넣어주는” 방식
-
-class UserService {
-  constructor(private logger: Logger) {}  // 밖에서 넣어줌
-}
-
-이렇게 해두면, UserService는 그냥 “나한테 Logger 하나만 주면 돼” 라고 말하는 거고, 진짜 Logger는 밖에서 누군가가 넣어줘야 해.
-
-⸻
-
-🤖 여기서 @inject() 등장!
-
-근데 누가 Logger를 넣어줘야 하냐고?
-그 역할을 해주는 게 의존성 주입 컨테이너야.
-
-class UserService {
-  constructor(@inject(Logger) private logger: Logger) {}
-}
-
-	•	@inject(Logger) 는 이렇게 말하는 거야:
-“야 DI 컨테이너야, Logger 타입 객체 하나 나 대신 넣어줘!”
-
-그리고 나서 이렇게 사용:
-
-const userService = container.get(UserService);
-
-	•	직접 Logger를 만들지 않아도
-	•	DI 컨테이너가 Logger를 자동으로 찾아서 넣어줘
-	•	테스트할 땐 FakeLogger, MockLogger 도 쉽게 넣을 수 있어
-
-⸻
-
-🧃 비유로 정리
-	•	직접 만들기: 커피 마시고 싶어서 직접 원두 사고 갈고 물 끓이고… 다 함
-	•	의존성 주입: “커피 좀 주세요” 했더니 자동으로 누가 타서 가져다 줌 ☕
-@inject()는 “커피 달라고 요청하는 표시”야!
-
-⸻
-
-💬 정리
-
-개념	쉽게 말하면
-@inject()	“필요한 거 자동으로 넣어줘!”라고 표시하는 도구
-왜 씀?	직접 만들지 않고, 외부에서 넣어주게 해서 코드가 유연하고 테스트 쉬워짐
-언제 씀?	클래스가 뭔가(예: Logger, API client 등)가 필요할 때
-
-
-⸻
-
-필요하다면 진짜 코드 예제, 테스트에 어떻게 쓰는지, Angular/Nest 환경에서의 사용법도 쉽게 풀어줄 수 있어!
