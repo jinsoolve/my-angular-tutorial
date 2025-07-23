@@ -1,56 +1,46 @@
-private waitForScrollEnd(
-  callback: () => void,
-  scrollEl: Element,
-  checkInterval = 100,
-  stableThreshold = 3,
-  movementThreshold = 2
-): void {
-  let lastY = (scrollEl as HTMLElement).scrollTop;
-  let stableCount = 0;
+private waitForScrollContainer(timeout = 5000): Promise<Element> {
+  const selector = '.cx-content.flexible-padding.hide-scrollbar';
 
-  const check = () => {
-    const currentY = (scrollEl as HTMLElement).scrollTop;
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(selector);
+    if (existing) return resolve(existing);
 
-    if (Math.abs(currentY - lastY) < movementThreshold) {
-      stableCount++;
-    } else {
-      stableCount = 0;
-    }
+    const observer = new MutationObserver((_mutations, obs) => {
+      const found = document.querySelector(selector);
+      if (found) {
+        obs.disconnect();
+        resolve(found);
+      }
+    });
 
-    lastY = currentY;
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
 
-    if (stableCount >= stableThreshold) {
-      callback(); // 멈췄다고 판단
-    } else {
-      setTimeout(check, checkInterval);
-    }
-  };
-
-  setTimeout(check, checkInterval);
+    setTimeout(() => {
+      observer.disconnect();
+      reject(new Error(`[waitForScrollContainer] Timeout after ${timeout}ms`));
+    }, timeout);
+  });
 }
 
 
 
 
-public doFocus(item: SearchItem): void {
-  const selector = `unit-${item.id}`;
 
-  this.router.navigate([item.route], { fragment: item.id }).then(() => {
-    this.waitForElement(selector)
-      .then((el) => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+this.waitForElement(selector)
+  .then((el) => {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-        const scrollEl = document.querySelector('.cx-content.flexible-padding.hide-scrollbar');
-        if (!scrollEl) {
-          console.warn('[doFocus] scroll container not found');
-          this.highlightBlink(el); // fallback
-          return;
-        }
-
+    this.waitForScrollContainer()
+      .then((scrollEl) => {
         this.waitForScrollEnd(() => {
           this.highlightBlink(el);
         }, scrollEl);
       })
-      .catch((err) => console.warn(`[doFocus] ${selector} not found:`, err));
+      .catch(() => {
+        console.warn('[doFocus] Scroll container not found');
+        this.highlightBlink(el); // fallback
+      });
   });
-}
