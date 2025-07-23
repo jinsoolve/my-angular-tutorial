@@ -1,5 +1,10 @@
-[...document.querySelectorAll('*')].filter(
-  el =>
-    (el.scrollHeight > el.clientHeight + 5) &&
-    ['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
-);
+function findScrollableElements() {
+  const all = Array.from(document.querySelectorAll('*'));
+  return all.filter(el => {
+    const style = getComputedStyle(el);
+    return ['auto', 'scroll'].includes(style.overflowY)
+      && el.scrollHeight > el.clientHeight + 5;
+  });
+}
+
+console.log(findScrollableElements());
