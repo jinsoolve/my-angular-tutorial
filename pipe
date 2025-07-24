@@ -1,38 +1,13 @@
-@keyframes highlight-pulse {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0px 0px rgba(0, 0, 0, 0);
-    background-color: transparent;
-  }
+@ViewChild('wxSearch', { static: true }) wxSearchRef!: ElementRef;
 
-  25% {
-    transform: scale(1.015);
-    box-shadow: 0 0 8px 4px rgba(0, 0, 0, 0.2);
-    background-color: rgba(0, 0, 0, 0.03);
-  }
+recentSearchItemClick(item: SearchItem) {
+  const host = this.wxSearchRef.nativeElement as HTMLElement;
 
-  50% {
-    transform: scale(1.03);
-    box-shadow: 0 0 18px 8px rgba(0, 0, 0, 0.4);
-    background-color: rgba(0, 0, 0, 0.07);
-  }
+  // shadow DOM 내부의 input 접근
+  const inputEl = host.shadowRoot?.querySelector('input.wx-search__input') as HTMLInputElement;
 
-  75% {
-    transform: scale(1.015);
-    box-shadow: 0 0 8px 4px rgba(0, 0, 0, 0.2);
-    background-color: rgba(0, 0, 0, 0.03);
+  if (inputEl) {
+    inputEl.value = item.name;  // 값 넣기
+    inputEl.dispatchEvent(new Event('input', { bubbles: true })); // 이벤트 트리거
   }
-
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0px 0px rgba(0, 0, 0, 0);
-    background-color: transparent;
-  }
-}
-
-.unit-highlight {
-  animation: highlight-pulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) 2;
-  border-radius: 10px;
-  transition: all 0.3s ease;
-  will-change: transform, box-shadow, background-color;
 }
