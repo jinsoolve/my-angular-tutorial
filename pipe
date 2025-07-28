@@ -1,10 +1,86 @@
-loading = false;
+좋습니다!
+“스페이스바를 눌렀을 때 어떤 일이 일어나는지” 브라우저 콘솔에서 직접 확인하는 방법을 아래에 단계별로 정리해 드릴게요.
 
-this.searchControl.valueChanges.subscribe(query => {
-  console.log('입력됨:', JSON.stringify(query));
-  this.loading = true;
-  this.search(query).subscribe(() => {
-    this.loading = false;
-    console.log('로딩 끝');
-  });
+⸻
+
+✅ 1. 브라우저 콘솔에서 스페이스 입력 감지 코드
+
+🔍 가장 기본: keydown 확인
+
+document.querySelector('input').addEventListener('keydown', e => {
+  console.log('[keydown]', e.key, '| value:', e.target.value);
 });
+
+🔍 input 이벤트 확인 (사용자 입력 반영 시점)
+
+document.querySelector('input').addEventListener('input', e => {
+  console.log('[input]', JSON.stringify(e.target.value));
+});
+
+🔍 change 이벤트 확인 (포커스 잃었을 때)
+
+document.querySelector('input').addEventListener('change', e => {
+  console.log('[change]', e.target.value);
+});
+
+
+⸻
+
+✅ 2. 콘솔에 출력되는 로그 예시
+
+예: 스페이스 한 번 눌렀을 때
+
+[keydown] " " | value: "hello"
+[input] "hello "
+
+	•	keydown은 누를 때마다 실행됨
+	•	input은 값이 실제로 바뀌었을 때만 발생
+	•	change는 포커스를 잃었을 때 한 번만 발생
+
+⸻
+
+✅ 3. 입력값이 이상하게 바뀌는지 감지하려면
+
+예: 입력값 추적
+
+let last = '';
+document.querySelector('input').addEventListener('input', e => {
+  const now = e.target.value;
+  if (now !== last) {
+    console.log(`[변화] ${JSON.stringify(last)} → ${JSON.stringify(now)}`);
+    last = now;
+  }
+});
+
+이렇게 하면 사용자가 스페이스 누른 직후에 입력값이 지워지는지, 혹은 다시 덮어씌워지는지 추적 가능해요.
+
+⸻
+
+✅ 4. 비정상적인 현상 확인 포인트
+
+현상	설명
+[input] 이벤트가 없음	입력이 취소됨 (e.preventDefault() 등)
+값이 "hello "였다가 "hello"로 다시 바뀜	누군가 setValue(), trim() 처리 중
+keydown만 발생하고 input은 없음	실제 DOM 값은 안 바뀐 상태
+
+
+⸻
+
+✅ 요약: 콘솔에서 추적할 코드 모음
+
+const input = document.querySelector('input');
+input.addEventListener('keydown', e => {
+  console.log('[keydown]', e.key, '| value:', e.target.value);
+});
+input.addEventListener('input', e => {
+  console.log('[input]', JSON.stringify(e.target.value));
+});
+input.addEventListener('change', e => {
+  console.log('[change]', JSON.stringify(e.target.value));
+});
+
+필요하면 setTimeout으로 100ms 뒤의 상태도 찍어볼 수 있어요.
+
+⸻
+
+필요하시면 input 요소에 어떤 directive나 Angular 바인딩이 되어 있는지도 알려주세요 — 내부에서 덮어쓰기 하고 있을 수도 있으니까요.
