@@ -8,3 +8,10 @@ window.addEventListener('keydown', e => {
 document.querySelector('input').addEventListener('keydown', e => {
   console.log('input keydown:', e.key);
 }, true);
+
+
+
+window.addEventListener('keydown', e => {
+  const tag = e.target.tagName;
+  console.log(`[keydown] key="${e.key}", tag=${tag}`);
+});
