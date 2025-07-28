@@ -1,13 +1,10 @@
-@ViewChild('wxSearch', { static: true }) wxSearchRef!: ElementRef;
+loading = false;
 
-recentSearchItemClick(item: SearchItem) {
-  const host = this.wxSearchRef.nativeElement as HTMLElement;
-
-  // shadow DOM 내부의 input 접근
-  const inputEl = host.shadowRoot?.querySelector('input.wx-search__input') as HTMLInputElement;
-
-  if (inputEl) {
-    inputEl.value = item.name;  // 값 넣기
-    inputEl.dispatchEvent(new Event('input', { bubbles: true })); // 이벤트 트리거
-  }
-}
+this.searchControl.valueChanges.subscribe(query => {
+  console.log('입력됨:', JSON.stringify(query));
+  this.loading = true;
+  this.search(query).subscribe(() => {
+    this.loading = false;
+    console.log('로딩 끝');
+  });
+});
