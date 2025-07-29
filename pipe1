@@ -1,42 +1,198 @@
-private waitForScrollEnd(callback: () => void, timeout = 300): void {
-  let lastScrollY = window.scrollY;
-  let sameCount = 0;
-  const threshold = 3;
+네, Suffix Automaton(SAM) 방식이 Suffix Tree(Ukkonen)보다 구현이 훨씬 간단하면서도 대부분의 substring 질의(존재 여부·개수·길이 등)를 선형 시간에 처리할 수 있습니다.
+아래에 C++17 버전과 TypeScript(Angular 서비스 포함) 버전을 다시 한 번 정리해 드립니다.
 
-  const check = () => {
-    const currentY = window.scrollY;
+⸻
 
-    if (Math.abs(currentY - lastScrollY) < 2) {
-      sameCount++;
-    } else {
-      sameCount = 0;
+1. C++17 구현
+
+// sam.cpp
+#include <bits/stdc++.h>
+using namespace std;
+
+struct State {
+    int len = 0;                      // 가장 긴 substring 길이
+    int link = -1;                    // suffix link
+    array<int, 26> next{};            // 알파벳(소문자 26) 전이
+    State() { next.fill(-1); }
+};
+
+class SuffixAutomaton {
+    vector<State> st;
+    int last = 0;                     // 전체 문자열 상태
+public:
+    explicit SuffixAutomaton(int n = 0) { st.reserve(2 * n); st.push_back(State()); }
+
+    void extend(char ch) {
+        int c = ch - 'a', cur = st.size();
+        st.push_back(State());
+        st[cur].len = st[last].len + 1;
+
+        int p = last;
+        for (; p != -1 && st[p].next[c] == -1; p = st[p].link)
+            st[p].next[c] = cur;
+
+        if (p == -1) st[cur].link = 0;
+        else {
+            int q = st[p].next[c];
+            if (st[p].len + 1 == st[q].len) st[cur].link = q;
+            else {                      // clone
+                int clone = st.size();
+                st.push_back(st[q]);
+                st[clone].len = st[p].len + 1;
+                for (; p != -1 && st[p].next[c] == q; p = st[p].link)
+                    st[p].next[c] = clone;
+                st[q].link = st[cur].link = clone;
+            }
+        }
+        last = cur;
     }
 
-    lastScrollY = currentY;
+    void build(const string& s) { for (char ch : s) extend(ch); }
 
-    if (sameCount >= threshold) {
-      callback();
-    } else {
-      requestAnimationFrame(check);
+    bool contains(const string& pat) const {
+        int v = 0;
+        for (char ch : pat) {
+            int c = ch - 'a';
+            if (st[v].next[c] == -1) return false;
+            v = st[v].next[c];
+        }
+        return true;
     }
-  };
+};
 
-  requestAnimationFrame(check);
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string s; cin >> s;
+    SuffixAutomaton sam(s.size());
+    sam.build(s);
+
+    int q; cin >> q;
+    while (q--) {
+        string pat; cin >> pat;
+        cout << (sam.contains(pat) ? "Yes\n" : "No\n");
+    }
 }
 
-public doFocus(item: SearchItem): void {
-  const selector = `unit-${item.id}`;
+	•	컴파일: g++ -std=c++17 -O2 sam.cpp -o sam
+	•	주요 함수
+	•	extend(char) : 온라인 확장
+	•	contains(string) : substring 여부 O(|pat|)
 
-  this.router.navigate([item.route], { fragment: item.id }).then(() => {
-    this.waitForElement(selector)
-      .then(el => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+⸻
 
-        // highlight는 스크롤 멈춘 후에 실행
-        this.waitForScrollEnd(() => {
-          this.highlightBlink(el);
+2. TypeScript + Angular 서비스
+
+2-1. 순수 SAM 클래스
+
+// src/app/core/algos/suffix-automaton.ts
+export interface SamState {
+  len: number;
+  link: number;
+  next: Map<string, number>;
+}
+
+export class SuffixAutomaton {
+  private st: SamState[] = [{ len: 0, link: -1, next: new Map() }];
+  private last = 0;
+
+  extend(ch: string): void {
+    const cur = this.st.length;
+    this.st.push({ len: this.st[this.last].len + 1, link: 0, next: new Map() });
+
+    let p = this.last;
+    while (p !== -1 && !this.st[p].next.has(ch)) {
+      this.st[p].next.set(ch, cur);
+      p = this.st[p].link;
+    }
+
+    if (p === -1) {
+      this.st[cur].link = 0;
+    } else {
+      const q = this.st[p].next.get(ch)!;
+      if (this.st[p].len + 1 === this.st[q].len) {
+        this.st[cur].link = q;
+      } else {
+        const clone = this.st.length;
+        this.st.push({
+          len: this.st[p].len + 1,
+          link: this.st[q].link,
+          next: new Map(this.st[q].next)
         });
-      })
-      .catch(err => console.warn(`[doFocus] element not found: ${selector}`, err));
-  });
+        while (p !== -1 && this.st[p].next.get(ch) === q) {
+          this.st[p].next.set(ch, clone);
+          p = this.st[p].link;
+        }
+        this.st[q].link = this.st[cur].link = clone;
+      }
+    }
+    this.last = cur;
+  }
+
+  build(s: string): void { for (const ch of s) this.extend(ch); }
+
+  contains(pat: string): boolean {
+    let v = 0;
+    for (const ch of pat) {
+      const nxt = this.st[v].next.get(ch);
+      if (nxt === undefined) return false;
+      v = nxt;
+    }
+    return true;
+  }
 }
+
+2-2. Angular 서비스 래퍼
+
+// src/app/core/algos/suffix-automaton.service.ts
+import { Injectable } from '@angular/core';
+import { SuffixAutomaton } from './suffix-automaton';
+
+@Injectable({ providedIn: 'root' })
+export class SuffixAutomatonService {
+  private sam?: SuffixAutomaton;
+
+  init(text: string): void {
+    this.sam = new SuffixAutomaton();
+    this.sam.build(text);
+  }
+
+  contains(substr: string): boolean {
+    if (!this.sam) throw new Error('SAM not initialized');
+    return this.sam.contains(substr);
+  }
+}
+
+2-3. 간단한 사용 예시
+
+@Component({
+  selector: 'app-sam-demo',
+  template: `
+    <input [(ngModel)]="query" placeholder="검색어" />
+    <button (click)="check()">검색</button>
+    <p *ngIf="result !== null">{{ result ? '포함됨 ✅' : '없음 ❌' }}</p>
+  `
+})
+export class SamDemoComponent {
+  query = '';
+  result: boolean | null = null;
+
+  constructor(private samSvc: SuffixAutomatonService) {
+    this.samSvc.init('banana');
+  }
+
+  check(): void {
+    this.result = this.samSvc.contains(this.query.trim());
+  }
+}
+
+
+⸻
+
+✔️ SAM이 더 간단한 이유
+	1.	데이터 구조가 트리 대신 DFA(DAG) 라서 포인터 수가 적고 구현이 짧음
+	2.	온라인 한 글자 확장만 구현하면 자동으로 최소 DFA가 유지
+	3.	배열·Map 기반이므로 언어에 관계없이 동일 패턴으로 옮겨쓰기 쉽다
+
+궁금한 점이나 추가 기능(빈도 집계, LCS 등)이 필요하면 언제든 말씀해 주세요!
