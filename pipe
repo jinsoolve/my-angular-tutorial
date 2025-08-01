@@ -1,17 +1,25 @@
-window.addEventListener('keydown', e => {
-  if (e.key === ' ') {
-    console.log('[Spacebar] was pressed');
+class SearchKeyword {
+  constructor(public id: string, public keyword: string) {}
+
+  toString(): string {
+    return `${this.id}|${this.keyword}`;
   }
-}, true);
 
+  static fromString(str: string): SearchKeyword {
+    const [id, keyword] = str.split("|");
+    return new SearchKeyword(id, keyword);
+  }
+}
 
-document.querySelector('input').addEventListener('keydown', e => {
-  console.log('input keydown:', e.key);
-}, true);
+const internalSet = new Set<string>();
 
-
-
-window.addEventListener('keydown', e => {
-  const tag = e.target.tagName;
-  console.log(`[keydown] key="${e.key}", tag=${tag}`);
+items.forEach(item => {
+  item.keywords.forEach(kw => {
+    const sk = new SearchKeyword(item.id, kw);
+    internalSet.add(sk.toString());
+  });
 });
+
+const keywordSet = new Set<SearchKeyword>(
+  Array.from(internalSet).map(SearchKeyword.fromString)
+);
