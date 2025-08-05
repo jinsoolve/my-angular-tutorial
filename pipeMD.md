@@ -1,57 +1,94 @@
-좋아요!
-queries는 성능 테스트에 사용할 검색어 목록이에요.
-→ 즉, search("light"), search("kw-100") 등 호출할 때 넘겨줄 테스트 쿼리 문자열 리스트를 의미합니다.
+좋습니다!
+아래는 당신이 기존에 fs.readFileSync()를 쓰던 코드를 Angular 환경 (브라우저 기반) 으로 완전히 리팩토링한 예시입니다.
 
 ⸻
 
-✅ 1. 간단한 예시 (수동 정의)
+🧨 기존 (Node.js 기준 코드 – ❌ Angular에서 작동 안 함)
 
-const queries = ['light', 'kw-1000', 'kw-1234', 'kw-9999', '조명'];
+// ❌ Angular에서는 동작하지 않음
+import * as fs from 'fs';
 
-이렇게 직접 입력하면 됩니다.
+const raw = fs.readFileSync('dummy_data.json', 'utf-8');
+const flatData = JSON.parse(raw);
+
 
 ⸻
 
-✅ 2. 데이터 기반으로 랜덤하게 추출하는 법
+✅ 리팩토링된 Angular 방식
 
-만약 dummy_data.json을 기반으로 실존하는 키워드 중 일부를 자동 추출하고 싶다면:
+📁 src/assets/dummy_data.json ← 여기에 JSON 파일을 저장하세요.
 
-🔧 예시 코드
+✅ 1. HttpClient를 통해 데이터 불러오기
 
-function getRandomQueries(data: { id: string; keyword: string }[], count: number): string[] {
-  const uniqueKeywords = Array.from(new Set(data.map(d => d.keyword)));
-  const shuffled = uniqueKeywords.sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+🔧 컴포넌트 예시 (search.component.ts 또는 benchmark.component.ts 등)
+
+import { Component, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+
+@Component({
+  selector: 'app-search',
+  template: `<div *ngIf="loaded">검색 데이터 {{ flatData.length }}건 로드됨</div>`
+})
+export class SearchComponent implements OnInit {
+  flatData: { id: string; keyword: string }[] = [];
+  loaded = false;
+
+  constructor(private http: HttpClient) {}
+
+  ngOnInit(): void {
+    this.http.get<{ id: string; keyword: string }[]>('assets/dummy_data.json')
+      .subscribe(data => {
+        this.flatData = data;
+        this.loaded = true;
+        console.log('✅ 데이터 불러오기 성공', this.flatData);
+        this.runBenchmark(); // 🔁 불러온 후 벤치마크 실행
+      });
+  }
+
+  runBenchmark() {
+    const queries = ['light', 'kw-1000', '조명']; // 테스트용 쿼리
+    const start = performance.now();
+
+    for (const query of queries) {
+      this.flatData.filter(item => item.keyword.includes(query));
+    }
+
+    const end = performance.now();
+    console.log(`📊 검색 ${queries.length}개 평균 시간: ${((end - start) / queries.length).toFixed(3)}ms`);
+  }
 }
 
-✅ 사용 예
 
-const flatData: { id: string; keyword: string }[] = JSON.parse(fs.readFileSync('dummy_data.json', 'utf-8'));
-const queries = getRandomQueries(flatData, 10); // 10개의 랜덤 키워드
+⸻
+
+✅ 2. app.module.ts에 HttpClientModule 추가 (한 번만 하면 됨)
+
+import { HttpClientModule } from '@angular/common/http';
+
+@NgModule({
+  imports: [
+    HttpClientModule,
+    ...
+  ]
+})
+export class AppModule {}
 
 
 ⸻
 
-✅ 3. 주의: 존재하지 않는 쿼리도 넣고 싶다면?
-
-성능 비교 시 아래처럼 존재하는 쿼리 + 존재하지 않는 쿼리 섞는 것도 좋아요:
-
-const queries = ['light', 'kw-1234', 'zzzzz', '조명', 'nonexistent'];
-
-	•	존재하는 쿼리: 일반적인 성능
-	•	존재하지 않는 쿼리: 최악 시간 (miss case) 성능 확인
+✅ 결과
+	•	✅ fs.readFileSync() 완전 제거
+	•	✅ JSON 파일은 src/assets/에서 불러오기
+	•	✅ Angular 컴포넌트 내부에서 검색 시간도 측정 가능
+	•	✅ 브라우저에서도 ng serve로 완벽하게 작동
 
 ⸻
 
-✅ 결론
-
-목적	방법
-빠르게 테스트	const queries = ['kw-1', 'light', '조명']
-실제 데이터 기반 랜덤 추출	getRandomQueries(data, N) 사용
-실패 케이스도 포함	'nonexistent', 'xxxxx' 같은 문자열 추가
-
+🧠 추가 팁
+	•	dummy_data.json 파일은 Angular 빌드 시 자동으로 포함됩니다 (assets는 자동 복사됨)
+	•	검색 로직을 searchService로 분리하면 더 테스트하기 쉬운 구조로 만들 수 있어요
 
 ⸻
 
-필요하면 쿼리 길이/접두어/중간검색 등 특성별로 쿼리셋을 생성하는 함수도 만들어줄게요.
-지금 바로 쿼리를 자동으로 뽑고 싶다면 어떤 기준으로 뽑을지 말해줘!
+필요하면 이걸 Angular 서비스 구조로 리팩토링하거나, benchmark.service.ts처럼 독립 벤치마크 유닛으로 나눠줄 수도 있어요.
+원하면 바로 만들어줄게요!
