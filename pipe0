@@ -1,37 +1,46 @@
-좋아요! 주어진 조건을 정리하면 다음과 같습니다:
+좋습니다!
+이제 Set<SearchKeyword>에서 여러 개의 랜덤 keyword를 선택해서,
+각각에 대해 SearchStrategy.getFilteredItems(query)를 호출하고 싶다는 거죠?
 
 ⸻
 
-✅ 조건 정리
-	•	fetchedKeywords: Set<SearchKeyword>
-→ SearchKeyword는 { id: string; keyword: string } 형식일 것으로 가정
-	•	거기서 랜덤한 값을 하나 꺼내서
-	•	SearchStrategy 객체의 getFilteredItems(query: string) 호출
+✅ 목표
+	•	Set<SearchKeyword>에서 N개 랜덤 추출
+	•	각 keyword로 getFilteredItems(keyword) 실행
+	•	결과 및 시간 측정 (옵션)
 
 ⸻
 
-✅ 예시 코드
+✅ 함수 코드: N개 랜덤 추출 후 전략 호출
 
-function testRandomQueryFromFetchedKeywords(
+function testMultipleRandomQueriesFromFetchedKeywords(
   fetchedKeywords: Set<{ id: string; keyword: string }>,
-  strategy: { getFilteredItems: (query: string) => any }
+  strategy: { getFilteredItems: (query: string) => any },
+  count: number
 ): void {
-  if (fetchedKeywords.size === 0) {
-    console.warn('🚨 fetchedKeywords가 비어 있습니다.');
-    return;
+  const keywordsArray = Array.from(fetchedKeywords);
+
+  if (keywordsArray.length < count) {
+    console.warn(`❗ 요청한 개수(${count})가 Set 크기(${keywordsArray.length})보다 큽니다.`);
+    count = keywordsArray.length;
   }
 
-  // Set을 Array로 변환해서 랜덤하게 하나 선택
-  const keywordsArray = Array.from(fetchedKeywords);
-  const randomIndex = Math.floor(Math.random() * keywordsArray.length);
-  const randomKeyword = keywordsArray[randomIndex].keyword;
+  // ✅ Fisher-Yates 셔플로 랜덤한 N개 추출
+  for (let i = keywordsArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [keywordsArray[i], keywordsArray[j]] = [keywordsArray[j], keywordsArray[i]];
+  }
+  const selected = keywordsArray.slice(0, count);
 
-  // SearchStrategy 실행
-  const results = strategy.getFilteredItems(randomKeyword);
+  // ✅ 각 keyword로 검색 실행
+  for (const kw of selected) {
+    const start = performance.now();
+    const result = strategy.getFilteredItems(kw.keyword);
+    const end = performance.now();
 
-  // 결과 출력
-  console.log(`🔍 Random query: "${randomKeyword}"`);
-  console.log('📦 검색 결과:', results);
+    console.log(`🔍 '${kw.keyword}' → ${result.length}개 결과`);
+    console.log(`⏱️ ${end - start}ms`);
+  }
 }
 
 
@@ -39,24 +48,29 @@ function testRandomQueryFromFetchedKeywords(
 
 ✅ 사용 예
 
-import { NaiveSearchStrategy } from './strategies/naive-search-strategy';
+testMultipleRandomQueriesFromFetchedKeywords(fetchedKeywords, strategy, 5);
 
-const fetchedKeywords = new Set([
-  { id: 'kw-001', keyword: 'light' },
-  { id: 'kw-002', keyword: '조명' },
-  { id: 'kw-003', keyword: '전등' }
-]);
+위 코드는 Set에서 랜덤하게 5개 keyword를 뽑아 순차적으로 검색을 실행하고,
+각 결과 수와 걸린 시간도 출력합니다.
 
-const strategy = new NaiveSearchStrategy(flatData); // 이미 구현되어 있다고 가정
+⸻
 
-testRandomQueryFromFetchedKeywords(fetchedKeywords, strategy);
+✅ 필요시 평균 시간 계산 포함?
+
+원하면 아래처럼 평균 시간도 넣을 수 있어요:
+
+let totalTime = 0;
+
+for (const kw of selected) {
+  const start = performance.now();
+  const result = strategy.getFilteredItems(kw.keyword);
+  const end = performance.now();
+  totalTime += (end - start);
+}
+console.log(`📊 평균 시간: ${(totalTime / count).toFixed(2)}ms`);
 
 
 ⸻
 
-🧠 보너스: 반복 실행 및 평균 측정 포함?
-
-원하면 runNTests(n: number) 같은 걸로 N번 반복하며 평균 성능 측정도 같이 해드릴 수 있어요.
-
-필요하면 다음 단계로 확장해드릴게요.
-지금은 위 함수로 랜덤 호출만 하는 구조에 집중했어요!
+필요하면 suffixTrie, naive 등을 비교하는 버전도 통합해드릴 수 있어요.
+지금 단계에서는 이 코드로 충분히 테스트할 수 있습니다.
