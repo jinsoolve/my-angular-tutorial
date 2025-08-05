@@ -1,25 +1,40 @@
-class SearchKeyword {
-  constructor(public id: string, public keyword: string) {}
+import * as fs from 'fs';
 
-  toString(): string {
-    return `${this.id}|${this.keyword}`;
+function generateDistinctKeywordData(
+  itemCount: number,
+  keywordsPerItem: number,
+  keywordPool: string[]
+): { id: string, keyword: string }[] {
+  const result: { id: string, keyword: string }[] = [];
+  const totalKeywordsNeeded = itemCount * keywordsPerItem;
+
+  if (keywordPool.length < totalKeywordsNeeded) {
+    throw new Error("keywordPool이 너무 작습니다.");
   }
 
-  static fromString(str: string): SearchKeyword {
-    const [id, keyword] = str.split("|");
-    return new SearchKeyword(id, keyword);
+  const shuffledPool = [...keywordPool].sort(() => Math.random() - 0.5);
+  let keywordIndex = 0;
+
+  for (let i = 0; i < itemCount; i++) {
+    const id = `item-${i.toString().padStart(5, '0')}`;
+    for (let j = 0; j < keywordsPerItem; j++) {
+      result.push({
+        id,
+        keyword: shuffledPool[keywordIndex++]
+      });
+    }
   }
+
+  return result;
 }
 
-const internalSet = new Set<string>();
+// ✅ keyword pool 만들기
+const keywordPool = Array.from({ length: 30000 }, (_, i) => `kw-${i}`);
 
-items.forEach(item => {
-  item.keywords.forEach(kw => {
-    const sk = new SearchKeyword(item.id, kw);
-    internalSet.add(sk.toString());
-  });
-});
+// ✅ 더미 데이터 생성
+const flatData = generateDistinctKeywordData(10000, 3, keywordPool);
 
-const keywordSet = new Set<SearchKeyword>(
-  Array.from(internalSet).map(SearchKeyword.fromString)
-);
+// ✅ 파일로 저장 (JSON format)
+fs.writeFileSync('dummy_data.json', JSON.stringify(flatData, null, 2), 'utf-8');
+
+console.log('✅ dummy_data.json 파일 저장 완료');
