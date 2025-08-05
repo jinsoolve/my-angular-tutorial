@@ -1,95 +1,57 @@
-완벽해요. 전처리나 검색엔진이 이미 구현되어 있다면,
-정말 필요한 건 오직 “시간 측정” 부분만 정확히 짜는 것이에요.
-
-그러니까 핵심은:
-👉 같은 쿼리 셋을 여러 번 실행하면서 performance.now()로 시간만 재는 코드만 있으면 됩니다.
+좋아요!
+queries는 성능 테스트에 사용할 검색어 목록이에요.
+→ 즉, search("light"), search("kw-100") 등 호출할 때 넘겨줄 테스트 쿼리 문자열 리스트를 의미합니다.
 
 ⸻
 
-✅ 핵심 벤치마크 함수만 제공할게요
+✅ 1. 간단한 예시 (수동 정의)
 
-📌 벤치마크 유틸 함수
+const queries = ['light', 'kw-1000', 'kw-1234', 'kw-9999', '조명'];
 
-import { performance } from 'perf_hooks';
+이렇게 직접 입력하면 됩니다.
 
-/**
- * 벤치마크 실행 함수
- * @param label 로그 이름
- * @param searchFn 검색 함수 (query: string) => string[]
- * @param queries 테스트할 쿼리 리스트
- * @param repeat 반복 횟수 (각 쿼리별)
- */
-export function benchmark(
-  label: string,
-  searchFn: (query: string) => string[],
-  queries: string[],
-  repeat = 1
-) {
-  const times: number[] = [];
+⸻
 
-  for (const query of queries) {
-    for (let i = 0; i < repeat; i++) {
-      const t0 = performance.now();
-      searchFn(query);
-      const t1 = performance.now();
-      times.push(t1 - t0);
-    }
-  }
+✅ 2. 데이터 기반으로 랜덤하게 추출하는 법
 
-  const avg = times.reduce((a, b) => a + b, 0) / times.length;
-  const min = Math.min(...times);
-  const max = Math.max(...times);
+만약 dummy_data.json을 기반으로 실존하는 키워드 중 일부를 자동 추출하고 싶다면:
 
-  console.log(`📊 [${label}]`);
-  console.log(`  - 평균: ${avg.toFixed(3)} ms`);
-  console.log(`  - 최소: ${min.toFixed(3)} ms`);
-  console.log(`  - 최대: ${max.toFixed(3)} ms`);
-  console.log(`  - 반복: ${repeat}회 × ${queries.length} 쿼리 = ${times.length}번\n`);
+🔧 예시 코드
+
+function getRandomQueries(data: { id: string; keyword: string }[], count: number): string[] {
+  const uniqueKeywords = Array.from(new Set(data.map(d => d.keyword)));
+  const shuffled = uniqueKeywords.sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
 }
 
+✅ 사용 예
 
-⸻
-
-✅ 사용 예시 (네 구현에 맞춰 최소화)
-
-import { benchmark } from './benchmark'; // 위 코드가 있는 파일
-import { myNaiveSearch, mySuffixTrieSearch } from './yourSearchEngines'; // 너가 만든 검색기
-import { queries } from './queries'; // 쿼리셋 예: ['kw-1', 'kw-1000', 'kw-9999']
-
-benchmark('Naive', myNaiveSearch.search.bind(myNaiveSearch), queries, 10);
-benchmark('SuffixTrie', mySuffixTrieSearch.search.bind(mySuffixTrieSearch), queries, 10);
-
-repeat = 10 → 각 쿼리를 10번 반복하여 평균 계산
-search() 함수는 (query: string) => string[] 형태면 OK
-
-⸻
-
-✅ 출력 예시
-
-📊 [Naive]
-  - 평균: 0.543 ms
-  - 최소: 0.320 ms
-  - 최대: 1.033 ms
-  - 반복: 10회 × 5 쿼리 = 50번
-
-📊 [SuffixTrie]
-  - 평균: 0.092 ms
-  - 최소: 0.031 ms
-  - 최대: 0.187 ms
-  - 반복: 10회 × 5 쿼리 = 50번
+const flatData: { id: string; keyword: string }[] = JSON.parse(fs.readFileSync('dummy_data.json', 'utf-8'));
+const queries = getRandomQueries(flatData, 10); // 10개의 랜덤 키워드
 
 
 ⸻
 
-✅ 요약
+✅ 3. 주의: 존재하지 않는 쿼리도 넣고 싶다면?
 
-항목	설명
-입력	(query: string) => string[] 형태의 search() 함수
-출력	평균/최소/최대 시간
-의존성	performance.now() (Node.js에서는 perf_hooks 필요)
+성능 비교 시 아래처럼 존재하는 쿼리 + 존재하지 않는 쿼리 섞는 것도 좋아요:
+
+const queries = ['light', 'kw-1234', 'zzzzz', '조명', 'nonexistent'];
+
+	•	존재하는 쿼리: 일반적인 성능
+	•	존재하지 않는 쿼리: 최악 시간 (miss case) 성능 확인
+
+⸻
+
+✅ 결론
+
+목적	방법
+빠르게 테스트	const queries = ['kw-1', 'light', '조명']
+실제 데이터 기반 랜덤 추출	getRandomQueries(data, N) 사용
+실패 케이스도 포함	'nonexistent', 'xxxxx' 같은 문자열 추가
 
 
 ⸻
 
-필요하면 이걸 CSV로 export하거나 Chart.js로 시각화하는 것도 바로 이어서 도와줄 수 있어요.
-지금 당장 이 코드 복붙해서 searchFn만 연결하면 바로 벤치마크 할 수 있습니다.
+필요하면 쿼리 길이/접두어/중간검색 등 특성별로 쿼리셋을 생성하는 함수도 만들어줄게요.
+지금 바로 쿼리를 자동으로 뽑고 싶다면 어떤 기준으로 뽑을지 말해줘!
