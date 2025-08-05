@@ -1,94 +1,94 @@
-좋습니다!
-아래는 당신이 기존에 fs.readFileSync()를 쓰던 코드를 Angular 환경 (브라우저 기반) 으로 완전히 리팩토링한 예시입니다.
+좋은 질문이에요! Angular에서 this.http.get(...).subscribe(...)에서 에러가 날 때는 두 가지 주요 위치에서 문제가 생길 수 있어요:
 
 ⸻
 
-🧨 기존 (Node.js 기준 코드 – ❌ Angular에서 작동 안 함)
+✅ 1. 네트워크 요청 자체에서 에러
 
-// ❌ Angular에서는 동작하지 않음
-import * as fs from 'fs';
-
-const raw = fs.readFileSync('dummy_data.json', 'utf-8');
-const flatData = JSON.parse(raw);
-
+예:
+	•	파일이 없거나 경로가 잘못됨 (404 Not Found)
+	•	JSON 형식 오류
+	•	CORS 정책 위반 등
 
 ⸻
 
-✅ 리팩토링된 Angular 방식
+✅ 2. .subscribe() 내부 코드에서 에러
 
-📁 src/assets/dummy_data.json ← 여기에 JSON 파일을 저장하세요.
+예:
+	•	data의 구조가 예상과 다름
+	•	this.flatData = data에서 타입 에러
+	•	그 이후 실행한 코드에서 에러 (undefined.map 등)
 
-✅ 1. HttpClient를 통해 데이터 불러오기
+⸻
 
-🔧 컴포넌트 예시 (search.component.ts 또는 benchmark.component.ts 등)
+🔍 에러를 추적하는 방법
 
-import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+✅ 방법 1: .subscribe()의 error 콜백을 추가
 
-@Component({
-  selector: 'app-search',
-  template: `<div *ngIf="loaded">검색 데이터 {{ flatData.length }}건 로드됨</div>`
-})
-export class SearchComponent implements OnInit {
-  flatData: { id: string; keyword: string }[] = [];
-  loaded = false;
-
-  constructor(private http: HttpClient) {}
-
-  ngOnInit(): void {
-    this.http.get<{ id: string; keyword: string }[]>('assets/dummy_data.json')
-      .subscribe(data => {
-        this.flatData = data;
-        this.loaded = true;
-        console.log('✅ 데이터 불러오기 성공', this.flatData);
-        this.runBenchmark(); // 🔁 불러온 후 벤치마크 실행
-      });
-  }
-
-  runBenchmark() {
-    const queries = ['light', 'kw-1000', '조명']; // 테스트용 쿼리
-    const start = performance.now();
-
-    for (const query of queries) {
-      this.flatData.filter(item => item.keyword.includes(query));
+this.http.get<{ id: string; keyword: string }[]>('assets/dummy_data.json')
+  .subscribe({
+    next: data => {
+      console.log('✅ 데이터 로딩 성공', data);
+      this.flatData = data;
+    },
+    error: err => {
+      console.error('❌ HTTP 요청 에러 발생!', err);
+    },
+    complete: () => {
+      console.log('📦 HTTP 요청 완료');
     }
+  });
 
-    const end = performance.now();
-    console.log(`📊 검색 ${queries.length}개 평균 시간: ${((end - start) / queries.length).toFixed(3)}ms`);
-  }
-}
+이렇게 하면 정확히 네트워크에서 문제가 발생했는지 확인 가능해요.
+
+⸻
+
+✅ 방법 2: F12 → Network 탭에서 요청 상태 확인
+	1.	브라우저에서 F12 (개발자 도구)
+	2.	“Network” 탭 클릭
+	3.	dummy_data.json 같은 요청이 있는지 확인
+	4.	Status가 200인지 확인, 아니라면 404, 500 등을 통해 원인 추적
+
+⸻
+
+✅ 방법 3: JSON 파일 구조 직접 확인
+
+dummy_data.json 파일이 이런 형식이 되어야 해요:
+
+[
+  { "id": "kw-001", "keyword": "light" },
+  { "id": "kw-002", "keyword": "조명" }
+]
 
 
 ⸻
 
-✅ 2. app.module.ts에 HttpClientModule 추가 (한 번만 하면 됨)
+✅ 방법 4: Angular 콘솔 로그 추가
 
-import { HttpClientModule } from '@angular/common/http';
-
-@NgModule({
-  imports: [
-    HttpClientModule,
+console.log('🚀 HTTP 요청 시작');
+this.http.get(...).subscribe({
+  next: data => {
+    console.log('📥 수신 데이터:', data);
     ...
-  ]
-})
-export class AppModule {}
+  },
+  error: err => {
+    console.error('❌ 요청 실패:', err);
+  }
+});
+
+이렇게 하면 요청 전/후 로그가 분명히 찍히고, 어디서 문제가 생겼는지 쉽게 파악할 수 있어요.
+
+⸻
+
+📌 마무리 요약
+
+확인 포인트	방법
+네트워크 요청 성공 여부	F12 → Network 탭
+구체적인 오류 내용	.subscribe({ error: err => { ... } })
+JSON 형식 문제	dummy_data.json 직접 열어보기
+실행 흐름 추적	console.log() 로그 삽입
 
 
 ⸻
 
-✅ 결과
-	•	✅ fs.readFileSync() 완전 제거
-	•	✅ JSON 파일은 src/assets/에서 불러오기
-	•	✅ Angular 컴포넌트 내부에서 검색 시간도 측정 가능
-	•	✅ 브라우저에서도 ng serve로 완벽하게 작동
-
-⸻
-
-🧠 추가 팁
-	•	dummy_data.json 파일은 Angular 빌드 시 자동으로 포함됩니다 (assets는 자동 복사됨)
-	•	검색 로직을 searchService로 분리하면 더 테스트하기 쉬운 구조로 만들 수 있어요
-
-⸻
-
-필요하면 이걸 Angular 서비스 구조로 리팩토링하거나, benchmark.service.ts처럼 독립 벤치마크 유닛으로 나눠줄 수도 있어요.
-원하면 바로 만들어줄게요!
+에러 메시지나 실패한 요청 URL 등을 보여주시면, 더 빠르게 디버깅 도와드릴 수도 있어요!
+필요하시면 같이 살펴볼까요?
