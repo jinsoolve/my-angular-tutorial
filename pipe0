@@ -1,180 +1,62 @@
-아래 예시는 Suffix Automaton(SAM) 을 C++17 기준으로 구현한 “가장 베이직한 뼈대”입니다.
-	•	extend() : 문자열을 한 글자씩 추가하며 상태(노드)를 확장
-	•	build() : 전체 문자열을 받아 자동으로 extend() 호출
-	•	보조 함수 :
-	•	contains() : 주어진 패턴이 S 의 서브스트링인지 확인
-	•	countDistinctSubstrings() : 서로 다른 서브스트링 개수 계산
-	•	longestCommonSubstring() : 두 문자열 LCS 길이 (SAM + 2nd pass)
+좋아요! 주어진 조건을 정리하면 다음과 같습니다:
 
-✨ 핵심 포인트
-	1.	link(suffix link) 와 next(char → 상태) 가 SAM 의 골격
-	2.	len = 그 상태가 표현할 수 있는 가장 긴 서브스트링 길이
-	3.	first_pos (선택) = 처음 등장 위치, 위치-질의에 필요
+⸻
 
-#include <bits/stdc++.h>
-using namespace std;
+✅ 조건 정리
+	•	fetchedKeywords: Set<SearchKeyword>
+→ SearchKeyword는 { id: string; keyword: string } 형식일 것으로 가정
+	•	거기서 랜덤한 값을 하나 꺼내서
+	•	SearchStrategy 객체의 getFilteredItems(query: string) 호출
 
-struct SuffixAutomaton {
-    struct State {
-        int len = 0;                     // max length for this state
-        int link = -1;                   // suffix link
-        array<int, 26> next;             // transitions (단일 소문자 알파벳 예시)
-        long long subCnt = 0;            // DP: distinct substring count of subtree
+⸻
 
-        State() { next.fill(-1); }
-    };
+✅ 예시 코드
 
-    vector<State> st;
-    int last = 0;                        // id of state representing whole string
+function testRandomQueryFromFetchedKeywords(
+  fetchedKeywords: Set<{ id: string; keyword: string }>,
+  strategy: { getFilteredItems: (query: string) => any }
+): void {
+  if (fetchedKeywords.size === 0) {
+    console.warn('🚨 fetchedKeywords가 비어 있습니다.');
+    return;
+  }
 
-    explicit SuffixAutomaton(int maxLen = 0) {
-        st.reserve(2 * maxLen);
-        st.emplace_back();               // state 0 = root
-    }
+  // Set을 Array로 변환해서 랜덤하게 하나 선택
+  const keywordsArray = Array.from(fetchedKeywords);
+  const randomIndex = Math.floor(Math.random() * keywordsArray.length);
+  const randomKeyword = keywordsArray[randomIndex].keyword;
 
-    // ① 한 글자 확장
-    void extend(char ch) {
-        int c = ch - 'a';
-        int cur = (int)st.size();
-        st.emplace_back();
-        st[cur].len = st[last].len + 1;
+  // SearchStrategy 실행
+  const results = strategy.getFilteredItems(randomKeyword);
 
-        int p = last;
-        for (; p != -1 && st[p].next[c] == -1; p = st[p].link)
-            st[p].next[c] = cur;
-
-        if (p == -1) {
-            st[cur].link = 0;            // root
-        } else {
-            int q = st[p].next[c];
-            if (st[p].len + 1 == st[q].len) {
-                st[cur].link = q;        // direct suffix
-            } else {
-                // ③ clone state
-                int clone = (int)st.size();
-                st.push_back(st[q]);     // copy
-                st[clone].len = st[p].len + 1;
-                // no need to copy subCnt; will be updated later
-                for (; p != -1 && st[p].next[c] == q; p = st[p].link)
-                    st[p].next[c] = clone;
-
-                st[q].link   = clone;
-                st[cur].link = clone;
-            }
-        }
-        last = cur;
-    }
-
-    // ② 전체 문자열 처리
-    explicit SuffixAutomaton(const string &s) {           // 편의 생성자
-        st.reserve(2 * (int)s.size());
-        st.emplace_back();
-        for (char ch : s) extend(ch);
-    }
-    void build(const string &s) {                         // 별도 build 버전
-        for (char ch : s) extend(ch);
-    }
-
-    // ④ 패턴 존재 여부
-    bool contains(const string &pat) const {
-        int v = 0;
-        for (char ch : pat) {
-            int c = ch - 'a';
-            if (st[v].next[c] == -1) return false;
-            v = st[v].next[c];
-        }
-        return true;
-    }
-
-    // ⑤ 서로 다른 서브스트링 개수 = Σ(state.len - st[link].len)
-    long long countDistinctSubstrings() {
-        if (st[0].subCnt) return st[0].subCnt;            // 이미 계산?
-        vector<int> order(st.size());
-        iota(order.begin(), order.end(), 0);
-        sort(order.begin(), order.end(),
-             [&](int a, int b) { return st[a].len > st[b].len; }); // top-down
-
-        long long total = 0;
-        for (int v : order) {
-            long long add = st[v].len - (st[v].link == -1 ? 0 : st[ st[v].link ].len);
-            st[v].subCnt = add;
-            if (st[v].link != -1) st[ st[v].link ].subCnt += st[v].subCnt;
-            total += add;
-        }
-        return total;
-    }
-
-    // ⑥ 두 문자열 LCS 길이 (SAM of s1, feed s2)
-    int lcs(const string &t) const {
-        int v = 0, l = 0, best = 0;
-        for (char ch : t) {
-            int c = ch - 'a';
-            while (v && st[v].next[c] == -1) {
-                v = st[v].link;
-                l = st[v].len;
-            }
-            if (st[v].next[c] != -1) {
-                v = st[v].next[c];
-                ++l;
-            }
-            best = max(best, l);
-        }
-        return best;
-    }
-};
-
-int main() {
-    ios::sync_with_stdio(false);
-    cin.tie(nullptr);
-
-    string s; cin >> s;
-    SuffixAutomaton sam(s);          // 생성자에서 build
-    cout << "distinct substrings = " << sam.countDistinctSubstrings() << '\n';
-
-    int q; cin >> q;
-    while (q--) {
-        string pat; cin >> pat;
-        cout << (sam.contains(pat) ? "Yes\n" : "No\n");
-    }
-    return 0;
+  // 결과 출력
+  console.log(`🔍 Random query: "${randomKeyword}"`);
+  console.log('📦 검색 결과:', results);
 }
 
 
 ⸻
 
-코드 요약 & 확장 포인트
+✅ 사용 예
 
-블록	설명	확장 아이디어
-extend	온라인 구축의 핵심. clone 분기를 정확히 구현해야 minimal DFA 보장	알파벳이 크다면 array<int,26> → unordered_map<char,int>
-contains	존재 여부 O(	pat
-countDistinctSubstrings	SAM 정리 공식 Σ(len(v) − len(link(v))) 이용	빈도(occurrence) DP로 추가 집계
-lcs	LCS 길이 계산용 전형 루프	두 문자열 모두 SAM 없이 O(n+m)
+import { NaiveSearchStrategy } from './strategies/naive-search-strategy';
+
+const fetchedKeywords = new Set([
+  { id: 'kw-001', keyword: 'light' },
+  { id: 'kw-002', keyword: '조명' },
+  { id: 'kw-003', keyword: '전등' }
+]);
+
+const strategy = new NaiveSearchStrategy(flatData); // 이미 구현되어 있다고 가정
+
+testRandomQueryFromFetchedKeywords(fetchedKeywords, strategy);
 
 
 ⸻
 
-빌드 & 실행 예시
+🧠 보너스: 반복 실행 및 평균 측정 포함?
 
-g++ -std=c++17 -O2 sam.cpp -o sam
-echo -e "banana\n5\nana\nban\nnana\napple\nba" | ./sam
-# 출력
-# distinct substrings = 15
-# Yes
-# Yes
-# Yes
-# No
-# Yes
+원하면 runNTests(n: number) 같은 걸로 N번 반복하며 평균 성능 측정도 같이 해드릴 수 있어요.
 
-🔑 Tip:
-	•	문자열이 유니코드 / 대문자 포함이면 unordered_map<char32_t,int> 등으로 전이 저장
-	•	long long subCnt 부분을 응용해 각 substring 빈도 (토큰 출현 횟수)도 쉽게 구할 수 있습니다.
-
-필요하면 Suffix Tree(Ukkonen) C++ 코드나 더 고급 DP 예시도 도와드릴 테니, 언제든 말씀 주세요!
-
-
-
-
-
-
-
-
+필요하면 다음 단계로 확장해드릴게요.
+지금은 위 함수로 랜덤 호출만 하는 구조에 집중했어요!
